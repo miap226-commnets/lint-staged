@@ -1,4 +1,4 @@
-name: Generate SPDX SBOM (Syft) and production licenses
+name: Generate SPDX SBOM (v16.2.5 tarball) and production licenses
 
 on:
   workflow_dispatch:
@@ -7,17 +7,16 @@ jobs:
   sbom:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository (full history)
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # 关键：不要浅克隆
-          fetch-tags: true # 关键：把 tags 一起拉下来
-
-      - name: Checkout tag v16.2.5 (fetch tags again just in case)
+      - name: Download lint-staged v16.2.5 source tarball
         run: |
-          git fetch --force --tags
-          git checkout v16.2.5
-          git describe --tags --always
+          curl -L -o src.tar.gz https://github.com/lint-staged/lint-staged/archive/refs/tags/v16.2.5.tar.gz
+          tar -xzf src.tar.gz
+          ls -la
+
+      - name: Verify version is 16.2.5
+        working-directory: lint-staged-16.2.5
+        run: |
+          node -p "require('./package.json').version"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -25,18 +24,20 @@ jobs:
           node-version: "20"
 
       - name: Install dependencies
+        working-directory: lint-staged-16.2.5
         run: npm ci || npm install
 
       - name: Generate SBOM (SPDX JSON) using Syft
         uses: anchore/sbom-action@v0
         with:
-          path: .
+          path: lint-staged-16.2.5
           format: spdx-json
           output-file: lint-staged-16.2.5.spdx.json
 
       - name: Generate production dependency license report (license-checker)
+        working-directory: lint-staged-16.2.5
         run: |
-          npx --yes license-checker --production --json > licenses-production.json
+          npx --yes license-checker --production --json > ../licenses-production.json
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
