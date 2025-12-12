@@ -1,0 +1,40 @@
+name: Generate SPDX SBOM (Syft) and production licenses
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout v16.2.5
+        uses: actions/checkout@v4
+        with:
+          ref: v16.2.5
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies (creates lockfile data for analysis)
+        run: npm ci || npm install
+
+      - name: Generate SBOM (SPDX JSON) using Syft
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: lint-staged-16.2.5.spdx.json
+
+      - name: Generate production dependency license report (license-checker)
+        run: |
+          npx --yes license-checker --production --json > licenses-production.json
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-and-licenses
+          path: |
+            lint-staged-16.2.5.spdx.json
+            licenses-production.json
